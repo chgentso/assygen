@@ -85,7 +85,9 @@ class PickAndPlaceFileKicad(PickAndPlaceFile):
 	f= open(fname,'r')
 	rows=[]
 	for line in f:
-	    rows.append(line.split())
+            if (not line.startswith('##')):
+                # strip newline, remove #s, split by both whitespace and commas
+	        rows.append(line.rstrip().replace(',', ' ').replace('#', '').split())
 	    
 
         self.col_map = [colors.Color(1,0,0), 
