@@ -7,6 +7,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 import csv
+import argparse
 
 class PPComponent:
     def __init__(self,xc, yc, w, h, name, desc, ref):
@@ -174,14 +175,8 @@ class PickAndPlaceFileKicad(PickAndPlaceFile):
 #                    self.layers[layer][ref] = []
 #                self.layers[layer][ref].append(PPComponent(cx, cy, w, h, i[i_dsg], i[i_desc], ref))
 
-def renderGerber(base_name, layer, canv):
+def renderGerber(f_copper, f_overlay, canv):
     global gerberExtents
-    if(layer == "Bottom"):
-        f_copper = base_name+".GBL"
-        f_overlay = base_name+".GBO"
-    else:
-        f_copper = base_name+".GTL"
-        f_overlay = base_name+".GTO"
 
     canv.setLineWidth(0.0)
     gm = GerberMachine( "", canv )
@@ -193,11 +188,11 @@ def renderGerber(base_name, layer, canv):
     return gm.ProcessFile( f_overlay )
 
 
-def producePrintoutsForLayer(base_name, layer, canv):
+def producePrintoutsForLayer(out_name, copp_name, silk_name, place_name, layer, canv):
 
 
-    ctmp = canvas.Canvas(base_name + "_assy.pdf")
-    ext = renderGerber(base_name, layer, ctmp);
+    ctmp = canvas.Canvas(out_name)
+    ext = renderGerber(copp_name, silk_name, ctmp);
 
     scale1 = (gerberPageSize[0]-2*gerberMargin)/((ext[2]-ext[0]))
     scale2 = (gerberPageSize[1]-2*gerberMargin)/((ext[3]-ext[1]))
@@ -210,7 +205,7 @@ def producePrintoutsForLayer(base_name, layer, canv):
 
 
 
-    pf = PickAndPlaceFileKicad(base_name+".CSV")
+    pf = PickAndPlaceFileKicad(place_name)
     ngrp =  pf.num_groups(layer)
 
     for page in range(0, (ngrp+5)/6):
@@ -225,7 +220,7 @@ def producePrintoutsForLayer(base_name, layer, canv):
         else:
             canv.scale( gerberScale[0], gerberScale[1] )
 
-        renderGerber(base_name, layer, canv);
+        renderGerber(copp_name, silk_name, canv);
 
         pf.draw(layer, page*6, n_comps, canv);
 
@@ -233,8 +228,25 @@ def producePrintoutsForLayer(base_name, layer, canv):
         pf.gen_table(layer, page*6, n_comps, canv);
         canv.showPage()
 
-import sys
-canv = canvas.Canvas(sys.argv[1]+"_assy.pdf")
-#producePrintoutsForLayer(sys.argv[1], "Top", canv)
-producePrintoutsForLayer(sys.argv[1], "Bottom", canv)
+
+parser = argparse.ArgumentParser(description='Generate a PDF with colorful PCB'
+                                 'assembly drawings from gerber files.')
+
+parser.add_argument('out', help='output PDF filename')
+
+parser.add_argument('--place', help='placement CSV file')
+
+parser.add_argument('--copp_f', help='front copper')
+
+parser.add_argument('--copp_b', help='back copper')
+
+parser.add_argument('--silk_f', help='front silkscreen')
+
+parser.add_argument('--silk_b', help='back silkscreen')
+
+args = parser.parse_args()
+
+canv = canvas.Canvas(args.out)
+producePrintoutsForLayer(args.out, args.copp_f, args.silk_f, args.place, "Top", canv)
+producePrintoutsForLayer(args.out, args.copp_b, args.silk_b, args.place, "Bottom", canv)
 canv.save()
